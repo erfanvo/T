@@ -27,10 +27,10 @@ jobs:
         with:
           channel: 'stable'
 
-      # این مرحله تغییر کرد: ساخت خودکار پوشه android و دریافت پکیج‌ها
+      # تغییر طلایی در این خط اتفاق افتاده است:
       - name: Create Platform Files & Install Dependencies
         run: |
-          flutter create .
+          flutter create --project-name tapsi_client .
           flutter pub get
 
       - name: Build APK
