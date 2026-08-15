@@ -1,6 +1,5 @@
 name: Build Flutter APK
 
-# این اکشن با پوش کردن در شاخه اصلی یا به صورت دستی اجرا می‌شود
 on:
   push:
     branches:
@@ -14,32 +13,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ۱. دریافت کدهای پروژه از گیت‌هاب
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # ۲. نصب جاوا (پیش‌نیاز اندروید)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # ۳. نصب فلاتر
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      # ۴. دریافت پکیج‌ها
-      - name: Install Dependencies
-        run: flutter pub get
+      # این مرحله تغییر کرد: ساخت خودکار پوشه android و دریافت پکیج‌ها
+      - name: Create Platform Files & Install Dependencies
+        run: |
+          flutter create .
+          flutter pub get
 
-      # ۵. بیلد گرفتن نسخه ریلیز اندروید
       - name: Build APK
         run: flutter build apk --release
 
-      # ۶. آپلود فایل APK خروجی برای دانلود
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
