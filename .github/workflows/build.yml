@@ -29,19 +29,20 @@ jobs:
 
       - name: Create Fresh Project & Build
         run: |
-          # ۱. ساخت یک پروژه فلاتر کاملاً جدید و تمیز در یک پوشه دیگر
+          # ۱. ساخت پروژه جدید
           flutter create clean_tapsi_app
           
-          # ۲. کپی کردن کدهای main.dart شما به داخل پروژه جدید
+          # ۲. کپی کدهای شما
           cp lib/main.dart clean_tapsi_app/lib/main.dart
-          
-          # ۳. ورود به پوشه پروژه جدید
           cd clean_tapsi_app
           
-          # ۴. اضافه کردن خودکار و استاندارد تمام پکیج‌ها (بدون نیاز به دستکاری pubspec)
+          # ۳. دانلود پکیج‌ها
           flutter pub add http shared_preferences flutter_inappwebview
           
-          # ۵. بیلد گرفتن نسخه نهایی
+          # ۴. 🚨 تزریق جادویی برای رفع باگ Proguard پکیج InAppWebView 🚨
+          find ~/.pub-cache/hosted/pub.dev/ -type f -name "build.gradle" -exec sed -i 's/proguard-android.txt/proguard-android-optimize.txt/g' {} +
+          
+          # ۵. بیلد نهایی
           flutter build apk --release
 
       - name: Upload APK Artifact
