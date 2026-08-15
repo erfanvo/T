@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:collection';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -186,7 +187,7 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
     try {
       Map<String, dynamic> lsData = json.decode(widget.localStorageStr);
       lsData.forEach((key, value) {
-        // جلوگیری از تداخل کاراکترها در جاوااسکریپت
+        // جلوگیری از تداخل کاراکترها در جاوااسکر��پت
         String safeValue = value.toString().replaceAll("'", "\\'");
         script += "window.localStorage.setItem('$key', '$safeValue');\n";
       });
@@ -235,4 +236,3 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
     );
   }
 }
-
