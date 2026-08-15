@@ -1,17 +1,43 @@
-name: tapsi_client
-description: Tapsi Injector App
-publish_to: 'none'
+name: Build Flutter APK
 
-# این بخش اضافه شد تا خطای SDK برطرف شود
-environment:
-  sdk: '>=3.0.0 <4.0.0'
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: 
 
-dependencies:
-  flutter:
-    sdk: flutter
-  http: ^1.2.0
-  shared_preferences: ^2.2.2
-  flutter_inappwebview: ^6.0.0
+jobs:
+  build:
+    name: Build & Export APK
+    runs-on: ubuntu-latest
 
-flutter:
-  uses-material-design: true
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      # این مرحله تغییر کرد: ساخت خودکار پوشه android و دریافت پکیج‌ها
+      - name: Create Platform Files & Install Dependencies
+        run: |
+          flutter create .
+          flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tapsi-Client-Release
+          path: build/app/outputs/flutter-apk/app-release.apk
