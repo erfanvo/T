@@ -27,10 +27,31 @@ jobs:
         with:
           channel: 'stable'
 
-      # تغییر طلایی در این خط اتفاق افتاده است:
-      - name: Create Platform Files & Install Dependencies
+      # این مرحله کاملاً ضدگلوله شد! اول پوشه‌ها را می‌سازد، بعد فایل pubspec را با زور بازنویسی می‌کند
+      - name: Force Overwrite Pubspec & Install
         run: |
           flutter create --project-name tapsi_client .
+          
+          cat << 'EOF' > pubspec.yaml
+          name: tapsi_client
+          description: Tapsi Injector App
+          publish_to: 'none'
+          version: 1.0.0+1
+          
+          environment:
+            sdk: '>=3.13.0 <4.0.0'
+            
+          dependencies:
+            flutter:
+              sdk: flutter
+            http: ^1.2.0
+            shared_preferences: ^2.2.2
+            flutter_inappwebview: ^6.0.0
+            
+          flutter:
+            uses-material-design: true
+          EOF
+          
           flutter pub get
 
       - name: Build APK
