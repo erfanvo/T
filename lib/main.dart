@@ -126,7 +126,7 @@ class _LicenseScreenState extends State<LicenseScreen> {
 }
 
 // ==========================================
-// صفحه WebView تپسی
+// صفحه WebView تپسی با حل مشکل فریز شدن کلیک‌ها
 // ==========================================
 class TapsiWebScreen extends StatefulWidget {
   final String cookies;
@@ -152,7 +152,6 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
     _setupCookies();
   }
 
-  // ۱. تزریق کوکی‌ها برای تمامی دامین‌های درگیر (ترفند دور زدن SSO تپسی فود)
   Future<void> _setupCookies() async {
     CookieManager cookieManager = CookieManager.instance();
     
@@ -164,7 +163,6 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
           String name = parts[0].trim();
           String value = parts.sublist(1).join('=').trim();
           
-          // ست کردن کوکی برای دامین اصلی
           await cookieManager.setCookie(
             url: WebUri("https://app.tapsi.cab"),
             name: name,
@@ -173,7 +171,6 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
             isSecure: true,
           );
           
-          // ست کردن کوکی برای دامین IR (بسیار حیاتی برای تپسی فود و احراز هویت)
           await cookieManager.setCookie(
             url: WebUri("https://tapsi.ir"),
             name: name,
@@ -187,20 +184,38 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
     setState(() => _isSettingUp = false);
   }
 
-  // ۲. ساخت کد جاوااسکریپت برای تزریق Local Storage
-  String _buildLocalStorageScript() {
-    if (widget.localStorageStr == '{}') return "";
-    
+  // تجمیع کدهای جاوااسکریپت برای دور زدن پاپ‌آپ‌ها
+  String _buildScripts() {
     String script = "";
-    try {
-      Map<String, dynamic> lsData = json.decode(widget.localStorageStr);
-      lsData.forEach((key, value) {
-        String safeValue = value.toString().replaceAll("'", "\\'");
-        script += "window.localStorage.setItem('$key', '$safeValue');\n";
-      });
-    } catch (e) {
-      debugPrint("Error parsing LocalStorage");
+    
+    // ۱. تزریق لوکال استوریج
+    if (widget.localStorageStr != '{}') {
+      try {
+        Map<String, dynamic> lsData = json.decode(widget.localStorageStr);
+        lsData.forEach((key, value) {
+          String safeValue = value.toString().replaceAll("'", "\\'");
+          script += "window.localStorage.setItem('$key', '$safeValue');\n";
+        });
+      } catch (e) {
+        debugPrint("Error parsing LocalStorage");
+      }
     }
+
+    // ۲. هک جاوااسکریپت برای اجبار مینی‌اپ‌ها به باز شدن در همین صفحه
+    script += """
+      window.open = function(url, target, features) {
+        window.location.href = url;
+        return null;
+      };
+      
+      document.addEventListener('click', function(e) {
+        var a = e.target.closest('a');
+        if (a && a.getAttribute('target') === '_blank') {
+          a.setAttribute('target', '_self');
+        }
+      }, true);
+    """;
+    
     return script;
   }
 
@@ -210,38 +225,49 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // ۳. تزریق به تمام لایه‌ها (forMainFrameOnly: false باعث می‌شود آی‌فریم‌های SSO هم دیتا را بگیرند)
-    UserScript lsInjectionScript = UserScript(
-      source: _buildLocalStorageScript(),
+    UserScript injectionScript = UserScript(
+      source: _buildScripts(),
       injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
       forMainFrameOnly: false, 
     );
 
-    return Scaffold(
-      body: SafeArea(
-        child: InAppWebView(
-          initialUrlRequest: URLRequest(url: WebUri("https://app.tapsi.cab/profile/")),
-          initialUserScripts: UnmodifiableListView<UserScript>([lsInjectionScript]),
-          initialSettings: InAppWebViewSettings(
-            javaScriptEnabled: true,
-            domStorageEnabled: true,
-            clearCache: true,
-            // 🚨 این تنظیمات برای کار کردن تپسی فود و عبور از فیلترهای PWA الزامی است 🚨
-            thirdPartyCookiesEnabled: true, 
-            javaScriptCanOpenWindowsAutomatically: true,
-            supportMultipleWindows: true,
-            userAgent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    // افزودن PopScope برای جلوگیری از خروج ناخواسته از اپلیکیشن هنگام زدن دکمه برگشت گوشی
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        if (webViewController != null && await webViewController!.canGoBack()) {
+          webViewController!.goBack();
+        } else {
+          if (context.mounted) Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: InAppWebView(
+            initialUrlRequest: URLRequest(url: WebUri("https://app.tapsi.cab/profile/")),
+            initialUserScripts: UnmodifiableListView<UserScript>([injectionScript]),
+            initialSettings: InAppWebViewSettings(
+              javaScriptEnabled: true,
+              domStorageEnabled: true,
+              clearCache: true,
+              thirdPartyCookiesEnabled: true, 
+              // 🚨 خاموش کردن قابلیت چندپنجره‌ای تا کلیک‌ها فریز نشوند 🚨
+              supportMultipleWindows: false,
+              javaScriptCanOpenWindowsAutomatically: false,
+              userAgent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+            ),
+            onWebViewCreated: (controller) {
+              webViewController = controller;
+            },
+            onLoadStop: (controller, url) async {
+              bool? isReloaded = await controller.evaluateJavascript(source: "window.sessionStorage.getItem('reloaded');") == 'true';
+              if (!isReloaded) {
+                await controller.evaluateJavascript(source: "window.sessionStorage.setItem('reloaded', 'true');");
+                controller.reload();
+              }
+            },
           ),
-          onWebViewCreated: (controller) {
-            webViewController = controller;
-          },
-          onLoadStop: (controller, url) async {
-            bool? isReloaded = await controller.evaluateJavascript(source: "window.sessionStorage.getItem('reloaded');") == 'true';
-            if (!isReloaded) {
-              await controller.evaluateJavascript(source: "window.sessionStorage.setItem('reloaded', 'true');");
-              controller.reload();
-            }
-          },
         ),
       ),
     );
