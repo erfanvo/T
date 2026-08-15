@@ -36,13 +36,16 @@ jobs:
           cp lib/main.dart clean_tapsi_app/lib/main.dart
           cd clean_tapsi_app
           
-          # ۳. دانلود پکیج‌ها
+          # ۳. 🚨 تزریق مجوز اینترنت به مانیفست اندروید 🚨
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
+          
+          # ۴. دانلود پکیج‌ها
           flutter pub add http shared_preferences flutter_inappwebview
           
-          # ۴. 🚨 تزریق جادویی برای رفع باگ Proguard پکیج InAppWebView 🚨
+          # ۵. تزریق جادویی برای رفع باگ Proguard
           find ~/.pub-cache/hosted/pub.dev/ -type f -name "build.gradle" -exec sed -i 's/proguard-android.txt/proguard-android-optimize.txt/g' {} +
           
-          # ۵. بیلد نهایی
+          # ۶. بیلد نهایی
           flutter build apk --release
 
       - name: Upload APK Artifact
