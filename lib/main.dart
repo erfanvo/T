@@ -55,7 +55,6 @@ class _LicenseScreenState extends State<LicenseScreen> {
     });
 
     try {
-      // دریافت اطلاعات از سرور Railway
       final response = await http.get(
         Uri.parse('https://testtok-production.up.railway.app/api/tapsi/get-license/$licenseKey'),
       );
@@ -67,7 +66,6 @@ class _LicenseScreenState extends State<LicenseScreen> {
           final localStorage = data['data']['local_storage'] ?? '{}';
           
           if (!mounted) return;
-          // انتقال به صفحه WebView و ارسال دیتا
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -154,7 +152,7 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
     _setupCookies();
   }
 
-  // ۱. تنظیم کوکی‌ها در مرورگر داخلی پیش از باز کردن صفحه
+  // ۱. تزریق کوکی‌ها برای تمامی دامین‌های درگیر (ترفند دور زدن SSO تپسی فود)
   Future<void> _setupCookies() async {
     CookieManager cookieManager = CookieManager.instance();
     
@@ -163,14 +161,24 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
       for (String pair in cookiePairs) {
         List<String> parts = pair.trim().split('=');
         if (parts.length >= 2) {
-          String name = parts[0];
-          String value = parts.sublist(1).join('=');
+          String name = parts[0].trim();
+          String value = parts.sublist(1).join('=').trim();
           
+          // ست کردن کوکی برای دامین اصلی
           await cookieManager.setCookie(
             url: WebUri("https://app.tapsi.cab"),
             name: name,
             value: value,
             domain: ".tapsi.cab",
+            isSecure: true,
+          );
+          
+          // ست کردن کوکی برای دامین IR (بسیار حیاتی برای تپسی فود و احراز هویت)
+          await cookieManager.setCookie(
+            url: WebUri("https://tapsi.ir"),
+            name: name,
+            value: value,
+            domain: ".tapsi.ir",
             isSecure: true,
           );
         }
@@ -187,7 +195,6 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
     try {
       Map<String, dynamic> lsData = json.decode(widget.localStorageStr);
       lsData.forEach((key, value) {
-        // جلوگیری از تداخل کاراکترها در جاوااسکر��پت
         String safeValue = value.toString().replaceAll("'", "\\'");
         script += "window.localStorage.setItem('$key', '$safeValue');\n";
       });
@@ -203,10 +210,11 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // ۳. اجرای اسکریپت در لحظه استارت داکیومنت (قبل از رندر PWA تپسی)
+    // ۳. تزریق به تمام لایه‌ها (forMainFrameOnly: false باعث می‌شود آی‌فریم‌های SSO هم دیتا را بگیرند)
     UserScript lsInjectionScript = UserScript(
       source: _buildLocalStorageScript(),
       injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+      forMainFrameOnly: false, 
     );
 
     return Scaffold(
@@ -218,13 +226,16 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
             javaScriptEnabled: true,
             domStorageEnabled: true,
             clearCache: true,
+            // 🚨 این تنظیمات برای کار کردن تپسی فود و عبور از فیلترهای PWA الزامی است 🚨
+            thirdPartyCookiesEnabled: true, 
+            javaScriptCanOpenWindowsAutomatically: true,
+            supportMultipleWindows: true,
             userAgent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
           ),
           onWebViewCreated: (controller) {
             webViewController = controller;
           },
           onLoadStop: (controller, url) async {
-            // رفرش دوم برای اطمینان از اینکه PWA دیتای لوکال استوریج را خوانده است
             bool? isReloaded = await controller.evaluateJavascript(source: "window.sessionStorage.getItem('reloaded');") == 'true';
             if (!isReloaded) {
               await controller.evaluateJavascript(source: "window.sessionStorage.setItem('reloaded', 'true');");
