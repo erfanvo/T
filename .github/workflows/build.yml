@@ -27,38 +27,25 @@ jobs:
         with:
           channel: 'stable'
 
-      # این مرحله کاملاً ضدگلوله شد! اول پوشه‌ها را می‌سازد، بعد فایل pubspec را با زور بازنویسی می‌کند
-      - name: Force Overwrite Pubspec & Install
+      - name: Create Fresh Project & Build
         run: |
-          flutter create --project-name tapsi_client .
+          # ۱. ساخت یک پروژه فلاتر کاملاً جدید و تمیز در یک پوشه دیگر
+          flutter create clean_tapsi_app
           
-          cat << 'EOF' > pubspec.yaml
-          name: tapsi_client
-          description: Tapsi Injector App
-          publish_to: 'none'
-          version: 1.0.0+1
+          # ۲. کپی کردن کدهای main.dart شما به داخل پروژه جدید
+          cp lib/main.dart clean_tapsi_app/lib/main.dart
           
-          environment:
-            sdk: '>=3.13.0 <4.0.0'
-            
-          dependencies:
-            flutter:
-              sdk: flutter
-            http: ^1.2.0
-            shared_preferences: ^2.2.2
-            flutter_inappwebview: ^6.0.0
-            
-          flutter:
-            uses-material-design: true
-          EOF
+          # ۳. ورود به پوشه پروژه جدید
+          cd clean_tapsi_app
           
-          flutter pub get
-
-      - name: Build APK
-        run: flutter build apk --release
+          # ۴. اضافه کردن خودکار و استاندارد تمام پکیج‌ها (بدون نیاز به دستکاری pubspec)
+          flutter pub add http shared_preferences flutter_inappwebview
+          
+          # ۵. بیلد گرفتن نسخه نهایی
+          flutter build apk --release
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Tapsi-Client-Release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: clean_tapsi_app/build/app/outputs/flutter-apk/app-release.apk
