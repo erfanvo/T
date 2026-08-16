@@ -126,7 +126,7 @@ class _LicenseScreenState extends State<LicenseScreen> {
 }
 
 // ==========================================
-// صفحه WebView تپسی با حل مشکل فریز شدن کلیک‌ها
+// صفحه WebView تپسی با حل مشکل تداخل SSO
 // ==========================================
 class TapsiWebScreen extends StatefulWidget {
   final String cookies;
@@ -152,57 +152,71 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
     _setupCookies();
   }
 
+  // ۱. محاصره کامل تمام دامین‌های درگیر در SSO تپسی مارکت
   Future<void> _setupCookies() async {
     CookieManager cookieManager = CookieManager.instance();
     
     if (widget.cookies.isNotEmpty && widget.cookies != 'empty') {
       List<String> cookiePairs = widget.cookies.split(';');
+      
+      // لیست دامین‌هایی که باید توکن شما را حتماً داشته باشند
+      List<String> targetDomains = [
+        ".tapsi.cab",
+        "app.tapsi.cab",
+        "api.tapsi.cab",
+        ".tapsi.ir",
+        "accounts.tapsi.ir",
+        "accounts-api.tapsi.ir",
+        ".tapsi.markets",
+        "www.tapsi.markets",
+        "apigateway.tapsi.markets"
+      ];
+
       for (String pair in cookiePairs) {
         List<String> parts = pair.trim().split('=');
         if (parts.length >= 2) {
           String name = parts[0].trim();
           String value = parts.sublist(1).join('=').trim();
           
-          await cookieManager.setCookie(
-            url: WebUri("https://app.tapsi.cab"),
-            name: name,
-            value: value,
-            domain: ".tapsi.cab",
-            isSecure: true,
-          );
-          
-          await cookieManager.setCookie(
-            url: WebUri("https://tapsi.ir"),
-            name: name,
-            value: value,
-            domain: ".tapsi.ir",
-            isSecure: true,
-          );
+          for (String d in targetDomains) {
+            String urlStr = "https://" + (d.startsWith('.') ? d.substring(1) : d);
+            await cookieManager.setCookie(
+              url: WebUri(urlStr),
+              name: name,
+              value: value,
+              domain: d,
+              isSecure: true,
+            );
+          }
         }
       }
     }
     setState(() => _isSettingUp = false);
   }
 
-  // تجمیع کدهای جاوااسکریپت برای دور زدن پاپ‌آپ‌ها
+  // ۲. اسکریپت هوشمند: جلوگیری از تداخل حافظه و هندل کردن پاپ‌آپ‌ها
   String _buildScripts() {
-    String script = "";
+    String lsInjection = "";
     
-    // ۱. تزریق لوکال استوریج
     if (widget.localStorageStr != '{}') {
       try {
         Map<String, dynamic> lsData = json.decode(widget.localStorageStr);
         lsData.forEach((key, value) {
-          String safeValue = value.toString().replaceAll("'", "\\'");
-          script += "window.localStorage.setItem('$key', '$safeValue');\n";
+          String safeValue = value.toString().replaceAll("'", "\\'").replaceAll('\n', '\\n');
+          lsInjection += "window.localStorage.setItem('$key', '$safeValue');\n";
         });
       } catch (e) {
         debugPrint("Error parsing LocalStorage");
       }
     }
 
-    // ۲. هک جاوااسکریپت برای اجبار مینی‌اپ‌ها به باز شدن در همین صفحه
-    script += """
+    return """
+      // تزریق حافظه فقط و فقط در صورتی که داخل هسته اصلی تپسی باشیم انجام شود
+      if (window.location.hostname.includes('tapsi.cab')) {
+        $lsInjection
+      }
+      
+      // جلوگیری از باز شدن تب جدید و هدایت مینی‌اپ‌ها به همین صفحه
       window.open = function(url, target, features) {
         window.location.href = url;
         return null;
@@ -215,14 +229,12 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
         }
       }, true);
     """;
-    
-    return script;
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isSettingUp) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF5CEBFF))));
     }
 
     UserScript injectionScript = UserScript(
@@ -231,7 +243,6 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
       forMainFrameOnly: false, 
     );
 
-    // افزودن PopScope برای جلوگیری از خروج ناخواسته از اپلیکیشن هنگام زدن دکمه برگشت گوشی
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
@@ -252,7 +263,6 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
               domStorageEnabled: true,
               clearCache: true,
               thirdPartyCookiesEnabled: true, 
-              // 🚨 خاموش کردن قابلیت چندپنجره‌ای تا کلیک‌ها فریز نشوند 🚨
               supportMultipleWindows: false,
               javaScriptCanOpenWindowsAutomatically: false,
               userAgent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
