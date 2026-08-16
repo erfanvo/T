@@ -7,45 +7,49 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const TapsiApp());
+  runApp(const TapsiPremiumApp());
 }
 
-class TapsiApp extends StatelessWidget {
-  const TapsiApp({Key? key}) : super(key: key);
+class TapsiPremiumApp extends StatelessWidget {
+  const TapsiPremiumApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Tapsi Injector App',
+      title: 'Premium Client',
       theme: ThemeData.dark().copyWith(
-        primaryColor: const Color(0xFF5CEBFF),
-        scaffoldBackgroundColor: const Color(0xFF121C29),
+        primaryColor: const Color(0xFF66FCF1),
+        scaffoldBackgroundColor: const Color(0xFF0B0C10),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF66FCF1),
+          secondary: Color(0xFF45A29E),
+        ),
       ),
       debugShowCheckedModeBanner: false,
-      home: const LicenseScreen(),
+      home: const AuthScreen(),
     );
   }
 }
 
 // ==========================================
-// صفحه ورود لایسنس
+// SECURE AUTHENTICATION SCREEN (LUXURY UI)
 // ==========================================
-class LicenseScreen extends StatefulWidget {
-  const LicenseScreen({Key? key}) : super(key: key);
+class AuthScreen extends StatefulWidget {
+  const AuthScreen({Key? key}) : super(key: key);
 
   @override
-  State<LicenseScreen> createState() => _LicenseScreenState();
+  State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _LicenseScreenState extends State<LicenseScreen> {
+class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _licenseController = TextEditingController();
   bool _isLoading = false;
   String _errorMessage = '';
 
-  Future<void> _fetchAndInject() async {
+  Future<void> _authenticate() async {
     final licenseKey = _licenseController.text.trim();
     if (licenseKey.isEmpty || !licenseKey.startsWith('TAPSI-')) {
-      setState(() => _errorMessage = 'فرمت لایسنس معتبر نیست.');
+      setState(() => _errorMessage = 'INVALID LICENSE FORMAT');
       return;
     }
 
@@ -68,19 +72,22 @@ class _LicenseScreenState extends State<LicenseScreen> {
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (context) => TapsiWebScreen(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => CoreEngineScreen(
                 cookies: cookies,
                 localStorageStr: localStorage,
               ),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return FadeTransition(opacity: animation, child: child);
+              },
             ),
           );
         }
       } else {
-        setState(() => _errorMessage = 'لایسنس یافت نشد.');
+        setState(() => _errorMessage = 'LICENSE EXPIRED OR NOT FOUND');
       }
     } catch (e) {
-      setState(() => _errorMessage = 'خطای شبکه.');
+      setState(() => _errorMessage = 'NETWORK CONNECTION FAILED');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -89,36 +96,91 @@ class _LicenseScreenState extends State<LicenseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ورود به تپسی')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _licenseController,
-              decoration: const InputDecoration(
-                hintText: 'TAPSI-XXXX-XXXX',
-                filled: true,
-                fillColor: Color(0xFF1E2D40),
-              ),
-              textAlign: TextAlign.center,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0B0C10), Color(0xFF1F2833)],
+          ),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF66FCF1).withOpacity(0.1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF66FCF1).withOpacity(0.2),
+                        blurRadius: 30,
+                        spreadRadius: 10,
+                      )
+                    ]
+                  ),
+                  child: const Icon(Icons.shield_rounded, size: 70, color: Color(0xFF66FCF1)),
+                ),
+                const SizedBox(height: 40),
+                const Text(
+                  'PREMIUM ACCESS',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 4.0,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Enter your secure license key to proceed',
+                  style: TextStyle(fontSize: 12, color: Colors.white54, letterSpacing: 1.0),
+                ),
+                const SizedBox(height: 40),
+                TextField(
+                  controller: _licenseController,
+                  style: const TextStyle(color: Colors.white, letterSpacing: 2.0, fontWeight: FontWeight.bold),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.black.withOpacity(0.3),
+                    hintText: 'TAPSI-XXXX-XXXX',
+                    hintStyle: const TextStyle(color: Colors.white24, letterSpacing: 2.0),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                if (_errorMessage.isNotEmpty)
+                  Text(_errorMessage, style: const TextStyle(color: Color(0xFFFF5252), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF66FCF1),
+                      foregroundColor: const Color(0xFF0B0C10),
+                      elevation: 10,
+                      shadowColor: const Color(0xFF66FCF1).withOpacity(0.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: _isLoading ? null : _authenticate,
+                    child: _isLoading 
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Color(0xFF0B0C10), strokeWidth: 3))
+                        : const Text('AUTHENTICATE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            if (_errorMessage.isNotEmpty) Text(_errorMessage, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5CEBFF)),
-                onPressed: _isLoading ? null : _fetchAndInject,
-                child: _isLoading 
-                    ? const CircularProgressIndicator(color: Colors.black)
-                    : const Text('ورود', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -126,50 +188,43 @@ class _LicenseScreenState extends State<LicenseScreen> {
 }
 
 // ==========================================
-// صفحه WebView تپسی با حل مشکل تداخل SSO
+// CORE ENGINE SCREEN (WEBVIEW)
 // ==========================================
-class TapsiWebScreen extends StatefulWidget {
+class CoreEngineScreen extends StatefulWidget {
   final String cookies;
   final String localStorageStr;
 
-  const TapsiWebScreen({
+  const CoreEngineScreen({
     Key? key,
     required this.cookies,
     required this.localStorageStr,
   }) : super(key: key);
 
   @override
-  State<TapsiWebScreen> createState() => _TapsiWebScreenState();
+  State<CoreEngineScreen> createState() => _CoreEngineScreenState();
 }
 
-class _TapsiWebScreenState extends State<TapsiWebScreen> {
+class _CoreEngineScreenState extends State<CoreEngineScreen> {
   InAppWebViewController? webViewController;
   bool _isSettingUp = true;
 
   @override
   void initState() {
     super.initState();
-    _setupCookies();
+    _setupCore();
   }
 
-  // ۱. محاصره کامل تمام دامین‌های درگیر در SSO تپسی مارکت
-  Future<void> _setupCookies() async {
+  Future<void> _setupCore() async {
     CookieManager cookieManager = CookieManager.instance();
     
     if (widget.cookies.isNotEmpty && widget.cookies != 'empty') {
       List<String> cookiePairs = widget.cookies.split(';');
       
-      // لیست دامین‌هایی که باید توکن شما را حتماً داشته باشند
+      // Massive Domain Blanket to ensure SSO captures the token
       List<String> targetDomains = [
-        ".tapsi.cab",
-        "app.tapsi.cab",
-        "api.tapsi.cab",
-        ".tapsi.ir",
-        "accounts.tapsi.ir",
-        "accounts-api.tapsi.ir",
-        ".tapsi.markets",
-        "www.tapsi.markets",
-        "apigateway.tapsi.markets"
+        ".tapsi.cab", "app.tapsi.cab", "api.tapsi.cab", 
+        ".tapsi.ir", "accounts.tapsi.ir", "accounts-api.tapsi.ir", 
+        ".tapsi.markets", "www.tapsi.markets", "apigateway.tapsi.markets"
       ];
 
       for (String pair in cookiePairs) {
@@ -194,8 +249,7 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
     setState(() => _isSettingUp = false);
   }
 
-  // ۲. اسکریپت هوشمند: جلوگیری از تداخل حافظه و هندل کردن پاپ‌آپ‌ها
-  String _buildScripts() {
+  String _buildInjectionScript() {
     String lsInjection = "";
     
     if (widget.localStorageStr != '{}') {
@@ -210,13 +264,14 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
       }
     }
 
+    // THE MAGIC LOGIC: Inject into tapsi.cab AND tapsi.ir (SSO) but NOT into tapsi.markets!
     return """
-      // تزریق حافظه فقط و فقط در صورتی که داخل هسته اصلی تپسی باشیم انجام شود
-      if (window.location.hostname.includes('tapsi.cab')) {
+      var host = window.location.hostname;
+      if (host.includes('tapsi.cab') || host.includes('tapsi.ir')) {
         $lsInjection
       }
       
-      // جلوگیری از باز شدن تب جدید و هدایت مینی‌اپ‌ها به همین صفحه
+      // Override popups
       window.open = function(url, target, features) {
         window.location.href = url;
         return null;
@@ -234,11 +289,23 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isSettingUp) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF5CEBFF))));
+      return Scaffold(
+        backgroundColor: const Color(0xFF0B0C10),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              CircularProgressIndicator(color: Color(0xFF66FCF1)),
+              SizedBox(height: 20),
+              Text('ESTABLISHING SECURE CONNECTION...', style: TextStyle(color: Color(0xFF66FCF1), letterSpacing: 2.0, fontSize: 10)),
+            ],
+          )
+        )
+      );
     }
 
     UserScript injectionScript = UserScript(
-      source: _buildScripts(),
+      source: _buildInjectionScript(),
       injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
       forMainFrameOnly: false, 
     );
@@ -254,6 +321,7 @@ class _TapsiWebScreenState extends State<TapsiWebScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: const Color(0xFF0B0C10),
         body: SafeArea(
           child: InAppWebView(
             initialUrlRequest: URLRequest(url: WebUri("https://app.tapsi.cab/profile/")),
