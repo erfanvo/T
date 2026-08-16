@@ -21,7 +21,7 @@ class PremiumClientApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF0B0C10),
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF5CEBFF),
-          secondary: Color(0xFFD4AF37), // Gold accent
+          secondary: Color(0xFFD4AF37),
         ),
       ),
       debugShowCheckedModeBanner: false,
@@ -31,7 +31,7 @@ class PremiumClientApp extends StatelessWidget {
 }
 
 // ==========================================
-// PREMIUM AUTHENTICATION SCREEN
+// SECURE AUTHENTICATION SCREEN
 // ==========================================
 class AuthenticationScreen extends StatefulWidget {
   const AuthenticationScreen({Key? key}) : super(key: key);
@@ -136,7 +136,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Please provide your secure token to proceed',
+                  'Provide your secure token to proceed',
                   style: TextStyle(fontSize: 13, color: Colors.white54, letterSpacing: 1.2),
                 ),
                 const SizedBox(height: 45),
@@ -193,7 +193,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 }
 
 // ==========================================
-// CORE ENGINE SCREEN (WEBVIEW INTEGRATION)
+// CORE ENGINE SCREEN (WEBVIEW)
 // ==========================================
 class CoreEngineScreen extends StatefulWidget {
   final String cookies;
@@ -212,26 +212,52 @@ class CoreEngineScreen extends StatefulWidget {
 class _CoreEngineScreenState extends State<CoreEngineScreen> {
   InAppWebViewController? webViewController;
   bool _isEngineReady = false;
+  String _extractedJwt = '';
 
   @override
   void initState() {
     super.initState();
+    _extractToken();
     _initializeEngine();
+  }
+
+  // Laser extraction of the JWT token from raw data
+  void _extractToken() {
+    try {
+      RegExp exp1 = RegExp(r'"accessToken"\s*:\s*"([^"]+)"');
+      var match1 = exp1.firstMatch(widget.localStorageStr);
+      if (match1 != null) {
+        _extractedJwt = match1.group(1)!;
+        return;
+      }
+      RegExp exp2 = RegExp(r'"token"\s*:\s*"([^"]+)"');
+      var match2 = exp2.firstMatch(widget.localStorageStr);
+      if (match2 != null) {
+        _extractedJwt = match2.group(1)!;
+        return;
+      }
+      RegExp exp3 = RegExp(r'"(eyJ[a-zA-Z0-9-_.]+)"');
+      var match3 = exp3.firstMatch(widget.localStorageStr);
+      if (match3 != null) {
+        _extractedJwt = match3.group(1)!;
+      }
+    } catch (e) {
+      debugPrint("Token extraction failed.");
+    }
   }
 
   Future<void> _initializeEngine() async {
     CookieManager cookieManager = CookieManager.instance();
     
+    List<String> targetDomains = [
+      ".tapsi.cab", "app.tapsi.cab", "api.tapsi.cab", 
+      ".tapsi.ir", "accounts.tapsi.ir", "accounts-api.tapsi.ir", 
+      ".tapsi.markets", "www.tapsi.markets", "apigateway.tapsi.markets"
+    ];
+
+    // 1. Inject API Cookies
     if (widget.cookies.isNotEmpty && widget.cookies != 'empty') {
       List<String> cookiePairs = widget.cookies.split(';');
-      
-      // Target ALL micro-service domains to bypass SSO entirely
-      List<String> targetDomains = [
-        ".tapsi.cab", "app.tapsi.cab", "api.tapsi.cab", 
-        ".tapsi.ir", "accounts.tapsi.ir", "accounts-api.tapsi.ir", 
-        ".tapsi.markets", "www.tapsi.markets", "apigateway.tapsi.markets"
-      ];
-
       for (String pair in cookiePairs) {
         List<String> parts = pair.trim().split('=');
         if (parts.length >= 2) {
@@ -241,41 +267,60 @@ class _CoreEngineScreenState extends State<CoreEngineScreen> {
           for (String d in targetDomains) {
             String urlStr = "https://" + (d.startsWith('.') ? d.substring(1) : d);
             await cookieManager.setCookie(
-              url: WebUri(urlStr),
-              name: name,
-              value: value,
-              domain: d,
-              isSecure: true,
-              sameSite: HTTPCookieSameSitePolicy.NONE, // CRITICAL FOR CROSS-DOMAIN SSO
+              url: WebUri(urlStr), name: name, value: value, domain: d, isSecure: true, sameSite: HTTPCookieSameSitePolicy.NONE,
             );
           }
         }
       }
     }
+
+    // 2. Force Inject JWT Token globally to bypass SSO
+    if (_extractedJwt.isNotEmpty) {
+      for (String d in targetDomains) {
+        String urlStr = "https://" + (d.startsWith('.') ? d.substring(1) : d);
+        await cookieManager.setCookie(
+          url: WebUri(urlStr), name: "token", value: _extractedJwt, domain: d, isSecure: true, sameSite: HTTPCookieSameSitePolicy.NONE,
+        );
+        await cookieManager.setCookie(
+          url: WebUri(urlStr), name: "tokenMS", value: _extractedJwt, domain: d, isSecure: true, sameSite: HTTPCookieSameSitePolicy.NONE,
+        );
+        await cookieManager.setCookie(
+          url: WebUri(urlStr), name: "accessToken", value: _extractedJwt, domain: d, isSecure: true, sameSite: HTTPCookieSameSitePolicy.NONE,
+        );
+      }
+    }
+
     setState(() => _isEngineReady = true);
   }
 
   String _buildInjectionScript() {
-    String storageInjection = "";
+    // Bulletproof JSON encoding to prevent JS syntax crash
+    String safeLs = jsonEncode(widget.localStorageStr);
     
-    if (widget.localStorageStr != '{}') {
-      try {
-        Map<String, dynamic> lsData = json.decode(widget.localStorageStr);
-        lsData.forEach((key, value) {
-          String safeValue = value.toString().replaceAll("\\", "\\\\").replaceAll("'", "\\'").replaceAll('\n', '\\n');
-          // UNCONDITIONAL INJECTION: Force token into every micro-service (markets, food, etc.)
-          storageInjection += "window.localStorage.setItem('$key', '$safeValue');\n";
-          storageInjection += "window.sessionStorage.setItem('$key', '$safeValue');\n";
-        });
-      } catch (e) {
-        debugPrint("Data parsing error");
-      }
-    }
-
     return """
-      $storageInjection
+      try {
+        var jwt = "$_extractedJwt";
+        if (jwt) {
+           window.localStorage.setItem('token', jwt);
+           window.localStorage.setItem('accessToken', jwt);
+           document.cookie = "token=" + jwt + "; path=/; domain=.tapsi.markets; secure; samesite=none";
+           document.cookie = "token=" + jwt + "; path=/; domain=.tapsi.ir; secure; samesite=none";
+        }
+        
+        var rawData = $safeLs;
+        if (rawData && rawData !== '{}') {
+           var lsData = JSON.parse(rawData);
+           for (var key in lsData) {
+              var val = typeof lsData[key] === 'string' ? lsData[key] : JSON.stringify(lsData[key]);
+              window.localStorage.setItem(key, val);
+              window.sessionStorage.setItem(key, val);
+           }
+        }
+      } catch(e) {
+        console.error("Injection Engine Error: ", e);
+      }
       
-      // Override popups to load internally and prevent freezes
+      // Override popups to load internally
       window.open = function(url, target, features) {
         window.location.href = url;
         return null;
@@ -337,7 +382,7 @@ class _CoreEngineScreenState extends State<CoreEngineScreen> {
               thirdPartyCookiesEnabled: true, 
               supportMultipleWindows: false,
               javaScriptCanOpenWindowsAutomatically: false,
-              userAgent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+              userAgent: "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
             ),
             onWebViewCreated: (controller) {
               webViewController = controller;
