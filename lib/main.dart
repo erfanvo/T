@@ -3,50 +3,49 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:collection';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const TapsiPremiumApp());
+  runApp(const PremiumClientApp());
 }
 
-class TapsiPremiumApp extends StatelessWidget {
-  const TapsiPremiumApp({Key? key}) : super(key: key);
+class PremiumClientApp extends StatelessWidget {
+  const PremiumClientApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Premium Client',
+      title: 'Premium Access',
       theme: ThemeData.dark().copyWith(
-        primaryColor: const Color(0xFF66FCF1),
+        primaryColor: const Color(0xFF5CEBFF),
         scaffoldBackgroundColor: const Color(0xFF0B0C10),
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF66FCF1),
-          secondary: Color(0xFF45A29E),
+          primary: Color(0xFF5CEBFF),
+          secondary: Color(0xFFD4AF37), // Gold accent
         ),
       ),
       debugShowCheckedModeBanner: false,
-      home: const AuthScreen(),
+      home: const AuthenticationScreen(),
     );
   }
 }
 
 // ==========================================
-// SECURE AUTHENTICATION SCREEN (LUXURY UI)
+// PREMIUM AUTHENTICATION SCREEN
 // ==========================================
-class AuthScreen extends StatefulWidget {
-  const AuthScreen({Key? key}) : super(key: key);
+class AuthenticationScreen extends StatefulWidget {
+  const AuthenticationScreen({Key? key}) : super(key: key);
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  State<AuthenticationScreen> createState() => _AuthenticationScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthenticationScreenState extends State<AuthenticationScreen> {
   final TextEditingController _licenseController = TextEditingController();
   bool _isLoading = false;
   String _errorMessage = '';
 
-  Future<void> _authenticate() async {
+  Future<void> _verifyLicense() async {
     final licenseKey = _licenseController.text.trim();
     if (licenseKey.isEmpty || !licenseKey.startsWith('TAPSI-')) {
       setState(() => _errorMessage = 'INVALID LICENSE FORMAT');
@@ -84,12 +83,12 @@ class _AuthScreenState extends State<AuthScreen> {
           );
         }
       } else {
-        setState(() => _errorMessage = 'LICENSE EXPIRED OR NOT FOUND');
+        setState(() => _errorMessage = 'LICENSE EXPIRED OR UNAUTHORIZED');
       }
     } catch (e) {
-      setState(() => _errorMessage = 'NETWORK CONNECTION FAILED');
+      setState(() => _errorMessage = 'SECURE CONNECTION FAILED');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -99,83 +98,89 @@ class _AuthScreenState extends State<AuthScreen> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0B0C10), Color(0xFF1F2833)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF1F2833), Color(0xFF0B0C10)],
           ),
         ),
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 32.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF66FCF1).withOpacity(0.1),
+                    color: const Color(0xFF5CEBFF).withOpacity(0.05),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF66FCF1).withOpacity(0.2),
-                        blurRadius: 30,
+                        color: const Color(0xFF5CEBFF).withOpacity(0.15),
+                        blurRadius: 40,
                         spreadRadius: 10,
                       )
                     ]
                   ),
-                  child: const Icon(Icons.shield_rounded, size: 70, color: Color(0xFF66FCF1)),
+                  child: const Icon(Icons.fingerprint_rounded, size: 80, color: Color(0xFF5CEBFF)),
                 ),
                 const SizedBox(height: 40),
                 const Text(
-                  'PREMIUM ACCESS',
+                  'SYSTEM ACCESS',
                   style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 4.0,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 6.0,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 const Text(
-                  'Enter your secure license key to proceed',
-                  style: TextStyle(fontSize: 12, color: Colors.white54, letterSpacing: 1.0),
+                  'Please provide your secure token to proceed',
+                  style: TextStyle(fontSize: 13, color: Colors.white54, letterSpacing: 1.2),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 45),
                 TextField(
                   controller: _licenseController,
-                  style: const TextStyle(color: Colors.white, letterSpacing: 2.0, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Color(0xFF5CEBFF), letterSpacing: 2.5, fontWeight: FontWeight.bold, fontSize: 16),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.black.withOpacity(0.3),
+                    fillColor: Colors.black.withOpacity(0.4),
                     hintText: 'TAPSI-XXXX-XXXX',
-                    hintStyle: const TextStyle(color: Colors.white24, letterSpacing: 2.0),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 20),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
+                    hintStyle: const TextStyle(color: Colors.white24, letterSpacing: 3.0),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 22),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(color: Colors.white.withOpacity(0.05), width: 1),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: const BorderSide(color: Color(0xFF5CEBFF), width: 1.5),
                     ),
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 if (_errorMessage.isNotEmpty)
-                  Text(_errorMessage, style: const TextStyle(color: Color(0xFFFF5252), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                const SizedBox(height: 30),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Text(_errorMessage, style: const TextStyle(color: Color(0xFFFF5252), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  ),
                 SizedBox(
                   width: double.infinity,
-                  height: 55,
+                  height: 60,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF66FCF1),
+                      backgroundColor: const Color(0xFF5CEBFF),
                       foregroundColor: const Color(0xFF0B0C10),
-                      elevation: 10,
-                      shadowColor: const Color(0xFF66FCF1).withOpacity(0.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 8,
+                      shadowColor: const Color(0xFF5CEBFF).withOpacity(0.4),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
-                    onPressed: _isLoading ? null : _authenticate,
+                    onPressed: _isLoading ? null : _verifyLicense,
                     child: _isLoading 
                         ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Color(0xFF0B0C10), strokeWidth: 3))
-                        : const Text('AUTHENTICATE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+                        : const Text('AUTHENTICATE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 3.0)),
                   ),
                 ),
               ],
@@ -188,7 +193,7 @@ class _AuthScreenState extends State<AuthScreen> {
 }
 
 // ==========================================
-// CORE ENGINE SCREEN (WEBVIEW)
+// CORE ENGINE SCREEN (WEBVIEW INTEGRATION)
 // ==========================================
 class CoreEngineScreen extends StatefulWidget {
   final String cookies;
@@ -206,21 +211,21 @@ class CoreEngineScreen extends StatefulWidget {
 
 class _CoreEngineScreenState extends State<CoreEngineScreen> {
   InAppWebViewController? webViewController;
-  bool _isSettingUp = true;
+  bool _isEngineReady = false;
 
   @override
   void initState() {
     super.initState();
-    _setupCore();
+    _initializeEngine();
   }
 
-  Future<void> _setupCore() async {
+  Future<void> _initializeEngine() async {
     CookieManager cookieManager = CookieManager.instance();
     
     if (widget.cookies.isNotEmpty && widget.cookies != 'empty') {
       List<String> cookiePairs = widget.cookies.split(';');
       
-      // Massive Domain Blanket to ensure SSO captures the token
+      // Target ALL micro-service domains to bypass SSO entirely
       List<String> targetDomains = [
         ".tapsi.cab", "app.tapsi.cab", "api.tapsi.cab", 
         ".tapsi.ir", "accounts.tapsi.ir", "accounts-api.tapsi.ir", 
@@ -241,37 +246,36 @@ class _CoreEngineScreenState extends State<CoreEngineScreen> {
               value: value,
               domain: d,
               isSecure: true,
+              sameSite: HTTPCookieSameSitePolicy.NONE, // CRITICAL FOR CROSS-DOMAIN SSO
             );
           }
         }
       }
     }
-    setState(() => _isSettingUp = false);
+    setState(() => _isEngineReady = true);
   }
 
   String _buildInjectionScript() {
-    String lsInjection = "";
+    String storageInjection = "";
     
     if (widget.localStorageStr != '{}') {
       try {
         Map<String, dynamic> lsData = json.decode(widget.localStorageStr);
         lsData.forEach((key, value) {
-          String safeValue = value.toString().replaceAll("'", "\\'").replaceAll('\n', '\\n');
-          lsInjection += "window.localStorage.setItem('$key', '$safeValue');\n";
+          String safeValue = value.toString().replaceAll("\\", "\\\\").replaceAll("'", "\\'").replaceAll('\n', '\\n');
+          // UNCONDITIONAL INJECTION: Force token into every micro-service (markets, food, etc.)
+          storageInjection += "window.localStorage.setItem('$key', '$safeValue');\n";
+          storageInjection += "window.sessionStorage.setItem('$key', '$safeValue');\n";
         });
       } catch (e) {
-        debugPrint("Error parsing LocalStorage");
+        debugPrint("Data parsing error");
       }
     }
 
-    // THE MAGIC LOGIC: Inject into tapsi.cab AND tapsi.ir (SSO) but NOT into tapsi.markets!
     return """
-      var host = window.location.hostname;
-      if (host.includes('tapsi.cab') || host.includes('tapsi.ir')) {
-        $lsInjection
-      }
+      $storageInjection
       
-      // Override popups
+      // Override popups to load internally and prevent freezes
       window.open = function(url, target, features) {
         window.location.href = url;
         return null;
@@ -288,16 +292,16 @@ class _CoreEngineScreenState extends State<CoreEngineScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isSettingUp) {
+    if (!_isEngineReady) {
       return Scaffold(
         backgroundColor: const Color(0xFF0B0C10),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
-              CircularProgressIndicator(color: Color(0xFF66FCF1)),
-              SizedBox(height: 20),
-              Text('ESTABLISHING SECURE CONNECTION...', style: TextStyle(color: Color(0xFF66FCF1), letterSpacing: 2.0, fontSize: 10)),
+              SizedBox(width: 40, height: 40, child: CircularProgressIndicator(color: Color(0xFF5CEBFF), strokeWidth: 2)),
+              SizedBox(height: 24),
+              Text('INITIALIZING CORE ENGINE...', style: TextStyle(color: Color(0xFF5CEBFF), letterSpacing: 3.0, fontSize: 11, fontWeight: FontWeight.bold)),
             ],
           )
         )
@@ -339,9 +343,9 @@ class _CoreEngineScreenState extends State<CoreEngineScreen> {
               webViewController = controller;
             },
             onLoadStop: (controller, url) async {
-              bool? isReloaded = await controller.evaluateJavascript(source: "window.sessionStorage.getItem('reloaded');") == 'true';
+              bool? isReloaded = await controller.evaluateJavascript(source: "window.sessionStorage.getItem('core_init');") == 'true';
               if (!isReloaded) {
-                await controller.evaluateJavascript(source: "window.sessionStorage.setItem('reloaded', 'true');");
+                await controller.evaluateJavascript(source: "window.sessionStorage.setItem('core_init', 'true');");
                 controller.reload();
               }
             },
